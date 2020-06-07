@@ -6,7 +6,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="LinkedList.fs" />
+    <Compile Include="FileSysReal.fs" />
   </ItemGroup>
 
 </Project>
