@@ -46,8 +46,8 @@ let divideByWorkFlow0 init x y z =
             | None -> None
             | Some c' -> Some c'
 
-let good = divideByWorkFlow0 12 3 2 1
-let bad = divideByWorkFlow0 12 3 0 1
+let good1 = divideByWorkFlow0 12 3 2 1
+let bad1 = divideByWorkFlow0 12 3 0 1
 
 type MaybeBuilder() =
     member this.Bind(x, f) =
@@ -112,6 +112,7 @@ let multiLookup key =
         return! map2.TryFind key
         return! map3.TryFind key
     }
+/// Logger
 
 // Asynchronous calls
 open System.Net
@@ -156,3 +157,90 @@ async {
 }
 |> Async.RunSynchronously
 
+
+//This simple workflow just sleeps for 2 seconds.
+open System
+
+let sleepWorkflow =
+    async {
+        printfn "Starting sleep workflow at %O" DateTime.Now.TimeOfDay
+        do! Async.Sleep 14000
+        printfn "Finished sleep workflow at %O" DateTime.Now.TimeOfDay
+    }
+
+let nestedWorkflow =
+    async {
+        printfn "Starting parent"
+        let! childWorkflow = Async.StartChild sleepWorkflow
+        do! Async.Sleep 3000
+        printfn "Doing something useful while waiting "
+        let! result = childWorkflow
+        printfn "Finished parent"
+    }
+
+Async.RunSynchronously nestedWorkflow
+
+// Divide using custom continuation
+// let divideBy bottom top =
+//     if bottom = 0 then None else Some(top / bottom)
+
+// let pipeInto (someExpression, lambda) =
+//     match someExpression with
+//     | None -> None
+//     | Some x -> x |> lambda
+
+// let return' c = Some c
+
+// let divideByWorkflow x y w z =
+//     pipeInto (x |> divideBy y, (fun a -> pipeInto (a |> divideBy w, (fun b -> pipeInto (b |> divideBy z, return')))))
+
+// let good2 = divideByWorkflow 12 3 2 1
+// let bad2 = divideByWorkflow 12 3 0 1
+
+// Exercice : parsing a string
+let strToInt (str: string) =
+    try
+        Some(int str)
+    with _ -> None
+
+type YourWorkFlowBuilder() =
+    member this.Bind(x, f) =
+        match x with
+        | None -> None
+        | Some value -> f value
+
+    member this.Return(x) = Some x
+
+let yourWorkflow = YourWorkFlowBuilder()
+
+let stringAddWorkflow x y z =
+    yourWorkflow {
+        let! a = strToInt x
+        let! b = strToInt y
+        let! c = strToInt z
+        return a + b + c
+    }
+
+// let good3 = stringAddWorkflow "12" "3" "2"
+// printfn "%A" good3
+// let bad3 = stringAddWorkflow "12" "xyz" "2"
+// printfn "%A" bad3
+
+let strAdd str i =
+    yourWorkflow {
+        let! a = strToInt str
+        // let! ii = i
+        return a + i
+    }
+
+let (>>=) m f =
+    match m with
+    | None -> None
+    | Some i -> f i
+
+
+let good4 =
+    (strToInt "1") >>= (strAdd "2") >>= strAdd "3"
+
+let bad4 =
+    strToInt "1" >>= strAdd "xyz" >>= strAdd "3"
