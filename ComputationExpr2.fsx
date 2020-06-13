@@ -265,7 +265,7 @@ type SuccessOrErrorBuilder() =
 
     member this.Return(x) = Success x
 
-let successOrError = new SuccessOrErrorBuilder()
+let successOrError = SuccessOrErrorBuilder()
 
 successOrError { return 42 }
 |> printfn "Result for success: %A"
@@ -277,7 +277,7 @@ successOrError {
 |> printfn "Result for error: %A"
 
 // Overloading2
-type ListBuilder() =
+type ListBuilder2() =
     member this.Bind(m, f) = m |> List.collect f
 
     member this.Yield(x) =
@@ -293,18 +293,77 @@ type ListBuilder() =
         let m2 = List.ofSeq m
         this.Bind(m2, f)
 
-let listbuilder = new ListBuilder()
+let listbuilder2 = ListBuilder2()
 
-listbuilder {
+listbuilder2 {
     let list = [ 1 .. 10 ]
     for i in list do
         yield i
 }
 |> printfn "Result for list: %A"
 
-listbuilder {
+listbuilder2 {
     let s = seq { 1 .. 10 }
     for i in s do
         yield i
 }
 |> printfn "Result for seq : %A"
+
+// Lazyness
+type Maybe<'a> = Maybe of (unit -> 'a option)
+
+type MaybeBuilder() =
+
+    member this.Bind(m, f) = Option.bind f m
+
+    member this.Return(x) = Some x
+
+    member this.ReturnFrom(Maybe f) = f ()
+
+    member this.Zero() = None
+
+    member this.Combine(a, b) =
+        match a with
+        | Some _' -> a // if a is good, skip b
+        | None -> b () // if a is bad, run b
+
+    member this.Delay(f) = f
+
+    member this.Run(f) = Maybe f
+
+let maybe = MaybeBuilder()
+
+let run (Maybe f) = f ()
+
+// maybe {
+//     printfn "Part 1: about to return 1"
+//     return 1
+//     printfn "Part 2: after return has happened"
+// }
+// |> printfn "Result for Part1 but not Part2: %A"
+
+// maybe {
+//     printfn "Part 1: about to return None"
+//     return! None
+//     printfn "Part 2: after None, keep going"
+// }
+// |> printfn "Result for Part1 and then Part2: %A"
+
+// let childWorkflow = maybe { printfn "Child workflow" }
+
+// maybe {
+//     printfn "Part 1: about to return 1"
+//     return 1
+//     return! childWorkflow
+// }
+// |> printfn "Result for Part1 but not childWorkflow: %A"
+
+let m1 =
+    maybe {
+        printfn "Part 1: about to return 1"
+        return 1
+        printfn "Part 2: after return has happened"
+    }
+
+run m1
+|> printfn "Result for Part1 but not Part2: %A"
